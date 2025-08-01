@@ -48,7 +48,7 @@ function M.start_matlab()
         local lua_file = debug.getinfo(1, "S").source:sub(2)
         local plugin_path = vim.fn.fnamemodify(lua_file, ":h:h:h") -- go up 3 levels: init.lua → matvim → lua
         local interpreter_path = vim.fs.joinpath(plugin_path, "customInterpreter.py")
-        cmd = { "python3", interpreter_path, vim.uv.cwd() }
+        cmd = string.format('python3 "%s" "%s"', interpreter_path, vim.uv.cwd())
     else
         cmd = { M.options.matlab_binary, "-nodesktop", "-sd", vim.uv.cwd() }
     end
