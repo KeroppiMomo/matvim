@@ -42,8 +42,15 @@ local function run_normal()
             return
         end
 
-        local r = vim.region(0, "'[", "']", motion_type:sub(1,1), true)
+        local converted_type = ({
+            char = "v",
+            line = "V",
+            block = vim.api.nvim_replace_termcodes("<C-V>", true, false, true), -- I think vim.region is bugged with <C-V>
+        })[motion_type]
+
+        local r = vim.region(0, "'[", "']", converted_type, true)
         local code = region_to_text(r)
+        print(code)
 
         matvim.execute_within_file(code, 0)
     end)
