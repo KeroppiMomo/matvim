@@ -50,7 +50,6 @@ local function run_normal()
 
         local r = vim.region(0, "'[", "']", converted_type, true)
         local code = region_to_text(r)
-        print(code)
 
         matvim.execute_within_file(code, 0)
     end)
