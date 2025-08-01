@@ -25,6 +25,19 @@ vim.api.nvim_create_user_command("MatlabRunFile", function()
         return
     end
 
+    if vim.o.modified then
+        if not pcall(function()
+            local confirm = vim.fn.confirm("Changes unsaved. Run file on disk?")
+            if confirm == 0 then
+                print("Aborted")
+                return
+            end
+        end) then
+            print("Aborted")
+            return
+        end
+    end
+
     local currentFile = vim.fn.expand("%:p")
     matvim.execute(string.format([[run("%s")]], currentFile))
 end, {})
