@@ -62,7 +62,7 @@ function M.start_matlab()
 end
 
 function M.execute(cmd)
-    vim.api.nvim_chan_send(M.job, cmd .. "\n")
+    vim.api.nvim_chan_send(M.job, cmd .. "\r\n")
 end
 
 --- Extract all function definitions from a Matlab file.
