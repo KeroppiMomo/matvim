@@ -58,6 +58,11 @@ local function run_normal()
 end
 
 local function run_line()
+    if matvim.job == nil then
+        displayError("No running Matlab instance. Start one with :MatlabStart")
+        return
+    end
+
     local code = vim.api.nvim_get_current_line()
     matvim.execute_within_file(code, 0)
 end
