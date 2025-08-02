@@ -1,8 +1,8 @@
 local M = {}
 
 M.options = {
-    use_custom_interpreter = true,
-    matlab_binary = "/Applications/MATLAB_R2025a.app/Contents/MacOS/MATLAB",
+    use_custom_interpreter = false,
+    matlab_cmd = "matlab",
     window_create = "vsplit",
     run_preview_length = 50,
     run_temp_folder = "~/tmp/",
@@ -51,7 +51,7 @@ function M.start_matlab()
         local interpreter_path = vim.fs.joinpath(plugin_path, "customInterpreter.py")
         cmd = string.format('python3 "%s" "%s"', interpreter_path, vim.uv.cwd())
     else
-        cmd = { M.options.matlab_binary, "-nodesktop", "-sd", vim.uv.cwd() }
+        cmd = string.format('%s -nodesktop -sd "%s"', M.options.matlab_cmd, vim.uv.cwd())
     end
 
     M.job = vim.fn.termopen(cmd, {
@@ -130,9 +130,45 @@ end
 function M.setup(opts)
     M.options = vim.tbl_deep_extend("force", M.options, opts or {})
 
+    M.check_setup()
+
     vim.api.nvim_create_autocmd("VimLeavePre", {
         callback = M.delete_temp_files,
     })
+end
+
+function M.check_setup()
+    local function warn(msg)
+        vim.cmd("echohl WarningMsg | echo '" .. msg .. "' | echohl None")
+    end
+    local function assert_warn(cond, msg)
+        if not cond then
+            warn(msg)
+        end
+    end
+
+    local opt = M.options
+    if opt.use_custom_interpreter then
+        assert_warn(
+            vim.fn.executable("python3") ~= 0,
+            'matvim: use_custom_interpreter is true but python3 is not executable.'
+        )
+    else
+        assert_warn(
+            vim.fn.executable(opt.matlab_cmd) ~= 0,
+            string.format('matvim: use_custom_interpreter is false but matlab_cmd "%s" is not executable.', opt.matlab_cmd)
+        )
+    end
+
+    assert_warn(
+        vim.fn.isdirectory(vim.fs.normalize(opt.run_temp_folder)) ~= 0,
+        string.format('matvim: specified run_temp_folder "%s" does not exist.', opt.run_temp_folder)
+    )
+
+    assert_warn(
+        type(opt.run_temp_filename) == "function",
+        string.format('matvim: run_temp_filename should have type "function", not "%s".', type(opt.run_temp_filename))
+    )
 end
 
 return M
