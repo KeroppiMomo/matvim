@@ -76,7 +76,7 @@ keymap_set("n", keymaps.matlab_start, "<Cmd>MatlabStart<CR>", {buffer=true})
 keymap_set("n", keymaps.run_file, "<Cmd>MatlabRunFile<CR>", {buffer=true})
 keymap_set("v", keymaps.run_visual, run_visual, {buffer=true})
 keymap_set("n", keymaps.run_normal, run_normal, {buffer=true, expr=true})
-keymap_set("n", "<leader>rr", run_line, {buffer=true})
+keymap_set("n", keymaps.run_line, run_line, {buffer=true})
 
 keymap_set("", keymaps.next_section, require("matvim.motion").goto_next_section, {buffer=true})
 keymap_set("", keymaps.prev_section, require("matvim.motion").goto_prev_section, {buffer=true})

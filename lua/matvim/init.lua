@@ -15,6 +15,7 @@ M.options = {
         run_file = "<leader>R",
         run_visual = "<leader>r",
         run_normal = "<leader>r",
+        run_line = "<leader>rr",
         next_section = "]]",
         prev_section = "[[",
         a_section = {"aS", "S"},
