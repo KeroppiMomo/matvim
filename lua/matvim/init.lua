@@ -1,7 +1,7 @@
 local M = {}
 
 M.options = {
-    use_custom_interpreter = false,
+    use_custom_interpreter = true,
     matlab_cmd = "matlab",
     window_create = "vsplit",
     run_preview_length = 50,

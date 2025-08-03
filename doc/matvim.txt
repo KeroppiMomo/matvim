@@ -1,0 +1,368 @@
+*matvim.txt*                                     Integrating MATLAB into Neovim
+
+===============================================================================
+CONTENTS                                                               *matvim*
+
+    1. Intro ................................................... |matvim-intro|
+    2. Requirements ..................................... |matvim-requirements|
+    3. Installation ..................................... |matvim-installation|
+    4. MATLAB interpreter ................................ |matvim-interpreter|
+        4.1 Shared engine .............................. |matvim-shared-engine|
+    5. Running code ..................................... |matvim-running-code|
+        5.1 Operators ................................... |matvim-run-operator|
+        5.2 Run preview .................................. |matvim-run-preview|
+        5.3 Temporary run files ....................... |matvim-temp-run-files|
+    6. Sections .............................................. |matvim-section|
+
+===============================================================================
+
+1. Intro                                                         *matvim-intro* ~
+
+Matvim is a plugin that integrates MATLAB into Neovim (to free you from
+clicking around in the desktop editor).
+
+                                                              *matvim-features*
+- Use |:MatlabStart| to start a MATLAB instance, or to connect to an existing,
+  running instance.
+- Run a `.m` file with |:MatlabRunFile| or "<Leader>R".
+- Use the operator "<Leader>r" to run part of a file. Local functions are
+  respected.
+- Move around sections with motions "[[" and "]]", or use text objects "aS"
+  and "iS".
+
+===============================================================================
+
+2. Requirements                                           *matvim-requirements* ~
+
+- MATLAB
+
+- Python 3 and MATLAB Engine
+
+  MATLAB Engine for Python is required if:
+  - you are on Windows; or
+  - you would like to connect to an existing MATLAB instance.
+
+  In this case, specify `use_custom_interpreter = true` in the configuration
+  options. Set it to `false` if you would like to use the official MATLAB
+  interpreter.
+
+  The appropriate Python 3 version should be installed for the specific MATLAB
+  version. Follow the installation instruction here:
+  https://mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html
+
+  You can check if the installation is successful by running `python3` and
+  typing `import matlab.engine`.
+
+- Treesitter support for MATLAB files
+
+  Treesitter is required if you want local functions to be extracted.
+  
+===============================================================================
+
+3. Installation                                           *matvim-installation* ~
+
+Use your favourite plugin manager (e.g. lazy.nvim) to add this plugin to the
+runtime path.
+
+Example lazy.nvim config: >lua
+  {
+    "KeroppiMomo/matvim",
+    opts = {
+      use_custom_interpreter = true,
+      matlab_cmd = "matlab",
+      run_temp_folder = "~/tmp/",
+      keymaps = {
+        matlab_start = "<leader>s",
+        run_file = "<leader>R",
+        run_visual = "<leader>r",
+        run_normal = "<leader>r",
+        run_line = "<leader>rr",
+        next_section = "]]",
+        prev_section = "[[",
+        a_section = {"aS", "S"},
+        i_section = "iS",
+      },
+    },
+  }
+<
+
+You should set `run_temp_folder` to a temporary directory, e.g.
+"C:\Users\username\AppData\Temp" on Windows.
+
+If `matlab` is not an executable shell command and `use_custom_interpreter` is
+set to false, replace `matlab_cmd` with a path to the MATLAB binary, e.g.
+"/Applications/MATLAB_R2025a.app/bin/matlab".
+
+`require("matvim").setup(opts)`                                  *matvim-setup*
+  Lua script to configure the plugin with an option table `opts`.
+
+  The following shows all keys that can be passed to the `opts` table and their
+  default values: >lua
+    {
+      use_custom_interpreter = true,
+      matlab_cmd = "matlab",
+      window_create = "vsplit",
+      run_preview_length = 50,
+      run_temp_folder = "~/tmp/",
+      run_temp_filename = function (_)
+          local timestamp = os.date("%Y%m%d_%H%M%S")
+          return string.format("matvim_%s.m", timestamp)
+      end,
+      keymaps = {
+          matlab_start = "<leader>s",
+          run_file = "<leader>R",
+          run_visual = "<leader>r",
+          run_normal = "<leader>r",
+          run_line = "<leader>rr",
+          next_section = "]]",
+          prev_section = "[[",
+          a_section = {"aS", "S"},
+          i_section = "iS",
+      },
+    }
+  <
+
+  For each option, see `:h matvim-opts.<option name>`.
+  
+
+===============================================================================
+
+4. MATLAB interpreter                                      *matvim-interpreter* ~
+
+This plugin requires an interpreter to interact with MATLAB.
+
+:MatlabStart                                                     *:MatlabStart*
+  Creates a terminal window and runs a MATLAB interpreter as a |job|.
+  
+  This command is only defined when you open a `.m` file.
+
+`opts.window_create`                                *matvim-opts.window_create*
+  `string` or `function`
+  Default: `"vsplit"`
+  Ex command or Lua function for `:MatlabStart` to create a terminal window for
+  the MATLAB instance. Change to `""` if the current window should be used.
+
+`opts.use_custom_interpreter`              *matvim-opts.use_custom_interpreter*
+  `boolean`
+  Default: `true`
+  If true, the plugin will run a custom Python wrapper of the MATLAB engine
+  (located at `customInterpreter.py` in the plugin folder). Otherwise,
+  the MATLAB binary specified by `opts.matlab_cmd` will be run instead.
+
+  Set to `true` if:
+  - you are on Windows (since `matlab -nodesktop` spawns a GUI terminal window
+    instead of accepting standard input); or
+  - you would like to connect to an existing MATLAB instance. See
+    |matvim-shared-engine|.
+  
+  Set to `false` if:
+  - you don't want to use my crappy Python wrapper; or
+  - you want to access MATLAB command history.
+
+`opts.matlab_cmd`                                      *matvim-opts.matlab_cmd*
+  `string`
+  Default: `"matlab"`
+  Shell command to invoke the MATLAB binary. Only relevant if
+  `opts.use_custom_interpreter` is `false`. In this case, `opts.matlab_cmd` is
+  run with options `-nodesktop` and `-sd` with the current directory.
+
+`opts.keymaps.matlab_start` *matvim-opts.keymaps.matlab_start* *matvim-<Leader>s*
+  `string` or `string[]`
+  Default: `"<Leader>s"`
+  Normal mode key map(s) to |:MatlabStart|.
+
+-------------------------------------------------------------------------------
+
+4.1 Shared engine                                        *matvim-shared-engine* ~
+
+You can connect to a MATLAB session that is already running by converting it to
+a shared session.
+
+1. Make sure `opts.use_custom_interpreter` is set to `true`.
+2. In your MATLAB command window, call `matlab.engine.shareEngine`.
+3. In Neovim, open a `.m` file.
+4. Execute `:MatlabStart`.
+
+You should receive a prompt like this: >
+  0. (create new instance)
+  1. MATLAB_54916
+
+  Connect or create a MATLAB instance: 
+<
+Press "1<Enter>" to select the shared instance.
+
+If there are multiple shared engines, you can check the engine name by running
+`matlab.engine.engineName` in the MATLAB command window.
+
+See https://mathworks.com/help/matlab/matlab_external/connect-python-to-running-matlab-session.html
+for more details.
+
+===============================================================================
+
+5. Running code                                           *matvim-running-code* ~
+
+The plugin runs code by sending it to the MATLAB instance. If a MATLAB
+instance is not running, the following commands and key maps will fail.
+
+:MatlabExecute {code}                                          *:MatlabExecute*
+  Send {code} over to the MATLAB instance, along with a new line character.
+
+:MatlabRunFile                                                 *:MatlabRunFile*
+  Send `run("<current buffer file>")` to the MATLAB instance.
+
+  This runs the current file as read on disk. If 'modified' is set, a prompt
+  is shown to warn that the code to be run may differ from the unsaved file in
+  buffer.
+
+`opts.keymaps.run_file`       *matvim-opts.keymaps.run_file* *matvim-<Leader>R*
+  `string` or `string[]`
+  Default: `<Leader>R`
+  Key map(s) to |:MatlabRunFile|.
+
+Besides running the entire file, the plugin supports running part of the code
+within a file with local functions respected. This is done by running a
+temporary file containing the selected code and all local functions.
+
+This requires |treesitter| support for the "matlab" file type. Check by
+executing `:checkhealth nvim-treesitter`.
+
+                                          *matvim-running-partial-file-example*
+For example, suppose we have the following `.m` file: >matlab
+  % Run this:
+  disp("Hello world!");
+  random_number
+  % ------------------------
+
+  % But not this:
+  while true
+    disp("Oh no")
+  end
+
+  function result = random_number()
+    result = 42;
+  end
+<
+
+After visually selecting the first four lines and typing "<Leader>r", the
+plugin creates a temporary file at `~/tmp/matvim_20250803_020741.m` with
+content: >matlab
+  % Run this:
+  disp("Hello world!");
+  random_number
+  % ------------------------
+
+
+  %% MATVIM DETECTED FUNCTIONS
+  []; % Force Matlab to treat as script file
+
+  function result = random_number()
+      result = 42;
+  end
+<
+
+And further sends it to the MATLAB instance: >matlab
+  >> run("/Users/Moses/tmp/matvim_20250803_020741.m") % % Run this:
+
+  Hello world!
+
+  ans =
+
+      42
+<
+
+-------------------------------------------------------------------------------
+
+5.1 Operators                                             *matvim-run-operator* ~
+
+`opts.keymaps.run_visual` *matvim-opts.keymaps.run_visual* *matvim-v_<Leader>r*
+  `string` or `string[]`
+  Default: `"<Leader>r"`
+  Visual mode key map(s) to run the selected code.
+
+`opts.keymaps.run_normal`   *matvim-opts.keymaps.run_normal* *matvim-<Leader>r*
+  `string` or `string[]`
+  Default: `"<Leader>r"`
+  Normal mode key map(s) to run code specified by a subsequent motion. For
+  example, "<Leader>rj" runs the current and the next lines.
+
+  You can run the current section by "<Leader>rS". See |matvim-section|.
+
+`opts.keymaps.run_line`      *matvim-opts.keymaps.run_line* *matvim-<Leader>rr*
+  `string` or `string[]`
+  Default: `"<Leader>rr"`
+  Normal mode key map(s) to run the current line.
+
+-------------------------------------------------------------------------------
+
+5.2 Run preview                                            *matvim-run-preview* ~
+
+Since the executed code is stored in a temporary file rather than displayed
+in the terminal window, a first line of the executed code is shown as a comment
+to provide some context.
+
+`opts.run_preview_length`                      *matvim-opts.run_preview_length*
+  `integer`
+  Default: `50`
+  Maximum length of the run preview text. Set to 0 to disable the preview.
+
+-------------------------------------------------------------------------------
+
+5.3 Temporary run files                                 *matvim-temp-run-files* ~
+
+`opts.run_temp_folder`                            *matvim-opts.run_temp_folder*
+  `string`
+  Default: `"~/tmp/"`
+  Path to a temporary directory where the run files are written to, e.g.
+  "C:\Users\username\AppData\Temp" on Windows. Make sure the folder exists
+  and Neovim has write permission to it.
+
+`opts.run_temp_filename`                        *matvim-opts.run_temp_filename*
+  `function(file_content: string): string`
+  Default: in the format `matvim_yyyymmdd_hhmmss.m`. See `lua/matvim/init.lua`.
+  File name of a temporary run file containing `file_content`.
+
+All temporary run files are automatically deleted once the terminal window is
+closed or Neovim exits. You can also delete them manually by running
+`:lua require("matvim").delete_temp_files()`.
+
+===============================================================================
+
+6. Sections                                                     *matvim-section* ~
+
+In a MATLAB file, a section begins with `%%` followed by a description, e.g. >matlab
+  %% Add two numbers
+  2+3
+
+  %% Multiply two numbers
+  2*3
+<
+
+You can navigate around sections using the "[[" and "]]" motions.
+
+`opts.keymaps.next_section`    *matvim-config.keymaps.next_section* *matvim-]]*
+  `string` or `string[]`
+  Default: `"]]"`
+  Key map(s) to move to the next section title.
+
+`opts.keymaps.prev_section`    *matvim-config.keymaps.prev_section* *matvim-[[*
+  `string` or `string[]`
+  Default: `"[["`
+  Key map(s) to move to the previous section title.
+
+Text objects are also defined. "aS" or "S" includes the section title while
+"iS" does not.
+
+`opts.keymaps.a_section` *matvim-config.keymaps.a_section* *matvim-aS* *matvim-S*
+  `string` or `string[]`
+  Default: `{"aS", "S"}`
+  Visual and operator-pending mode key map(s) to select the current section,
+  including its title.
+
+`opts.keymaps.i_section`          *matvim-config.keymaps.i_section* *matvim-iS*
+  `string` or `string[]`
+  Default: `"iS"`
+  Visual and operator-pending mode key map(s) to select the current section,
+  excluding its title.
+
+
+ vim:ft=help:norl:
